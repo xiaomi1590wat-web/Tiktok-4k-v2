@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>4K 60FPS TikTok Pro Compressor</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: #0f0f12; color: #ffffff; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+    .card { background: #18181c; padding: 30px; border-radius: 20px; width: 100%; max-width: 480px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.6); border: 1px solid #2a2a30; }
+    h1 { font-size: 22px; margin-bottom: 8px; color: #fe2c55; }
+    p { font-size: 14px; color: #aaa; margin-bottom: 24px; }
+    input[type="file"] { display: none; }
+    .upload-btn { background: linear-gradient(135deg, #fe2c55, #ff5277); color: #fff; padding: 16px 28px; border-radius: 12px; cursor: pointer; display: inline-block; font-weight: bold; font-size: 16px; width: 100%; transition: 0.2s; box-shadow: 0 4px 15px rgba(254, 44, 85, 0.4); }
+    .upload-btn:active { transform: scale(0.98); }
+    #progress-container { display: none; margin-top: 25px; text-align: left; }
+    .progress-bar-bg { background: #2a2a30; height: 12px; border-radius: 6px; overflow: hidden; margin-bottom: 10px; }
+    .progress-bar-fill { background: linear-gradient(90deg, #25f4ee, #fe2c55); height: 100%; width: 0%; transition: width 0.3s ease; }
+    .status-info { display: flex; justify-content: space-between; font-size: 13px; color: #ccc; }
+    #time-remaining { color: #25f4ee; font-weight: bold; }
+    #status-text { font-size: 14px; margin-top: 20px; color: #25f4ee; word-break: break-all; font-weight: 500; }
+    .download-btn { display: none; margin-top: 25px; padding: 16px 28px; background: #25f4ee; color: #000; font-weight: bold; text-decoration: none; border-radius: 12px; font-size: 16px; width: 100%; text-align: center; box-shadow: 0 4px 15px rgba(37, 244, 238, 0.4); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>4K 60FPS TikTok Pro</h1>
+    <p>Videoları 4K 60FPS keyfiyyətində saxlayaraq sıxın.</p>
+    
+    <label class="upload-btn" for="videoInput">📹 Qalereyadan Video Seç</label>
+    <input type="file" id="videoInput" accept="video/*">
+
+    <div id="progress-container">
+      <div class="progress-bar-bg">
+        <div id="progress-bar" class="progress-bar-fill"></div>
+      </div>
+      <div class="status-info">
+        <span id="percent-text">0%</span>
+        <span id="time-remaining">Hesablanır...</span>
+      </div>
+    </div>
+
+    <div id="status-text">Sistem hazırlanır... Gözləyin.</div>
+    <a id="downloadBtn" class="download-btn" download="4K60FPS_TikTok.mp4">⬇️ Videonu Qalereyaya Endir</a>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+  <script>
+    const { createFFmpeg, fetchFile } = FFmpeg;
+    const ffmpeg = createFFmpeg({ log: true });
+    
+    const statusText = document.getElementById('status-text');
+    const videoInput = document.getElementById('videoInput');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const progressContainer = document.getElementById('progress-container');
+    const progressBar = document.getElementById('progress-bar');
+    const percentText = document.getElementById('percent-text');
+    const timeRemaining = document.getElementById('time-remaining');
+
+    let startTime = 0;
+
+    async function initFFmpeg() {
+      try {
+        statusText.innerText = "FFmpeg modulu yüklənir...";
+        await ffmpeg.load();
+        statusText.innerText = "Sistem hazırdır! Videonuzu seçin.";
+      } catch (err) {
+        statusText.innerText = "Xəta baş verdi. Səhifəni yeniləyin.";
+      }
+    }
+
+    ffmpeg.setProgress(({ ratio }) => {
+      const percent = Math.round(ratio * 100);
+      if (percent > 0 && percent <= 100) {
+        progressBar.style.width = percent + '%';
+        percentText.innerText = percent + '%';
+
+        const elapsedTime = (Date.now() - startTime) / 1000;
+        const totalEstimatedTime = elapsedTime / ratio;
+        const remainingSeconds = Math.max(0, Math.round(totalEstimatedTime - elapsedTime));
+
+        const mins = Math.floor(remainingSeconds / 60);
+        const secs = remainingSeconds % 60;
+
+        if (mins > 0) {
+          timeRemaining.innerText = `Qalan vaxt: ~${mins} dəq ${secs} san`;
+        } else {
+          timeRemaining.innerText = `Qalan vaxt: ~${secs} san`;
+        }
+      }
+    });
+
+    videoInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      downloadBtn.style.display = 'none';
+      progressContainer.style.display = 'block';
+      progressBar.style.width = '0%';
+      percentText.innerText = '0%';
+      timeRemaining.innerText = 'Hesablanır...';
+      statusText.innerText = "Video emal olunur (4K 60 FPS)... Səhifəni bağlamayın!";
+      
+      startTime = Date.now();
+
+      try {
+        ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(file));
+        
+        await ffmpeg.run(
+          '-i', 'input.mp4',
+          '-r', '60',
+          '-c:v', 'libx264',
+          '-crf', '20',
+          '-preset', 'ultrafast',
+          '-c:a', 'aac',
+          '-b:a', '192k',
+          'output.mp4'
+        );
+
+        const data = ffmpeg.FS('readFile', 'output.mp4');
+        const videoUrl = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
+        
+        statusText.innerText = "✅ Sıxılma uğurla tamamlandı!";
+        timeRemaining.innerText = "Tamamlandı!";
+        downloadBtn.href = videoUrl;
+        downloadBtn.style.display = 'block';
+      } catch (err) {
+        statusText.innerText = "Sıxılma zamanı xəta yarandı. Yenidən cəhd edin.";
+      }
+    });
+
+    initFFmpeg();
+  </script>
+</body>
+</html>
